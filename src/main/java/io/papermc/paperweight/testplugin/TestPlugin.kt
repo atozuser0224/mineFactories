@@ -1,75 +1,64 @@
-package io.papermc.paperweight.testplugin;
+package io.papermc.paperweight.testplugin
 
-import com.destroystokyo.paper.brigadier.BukkitBrigadierCommandSource;
-import com.destroystokyo.paper.event.brigadier.CommandRegisteredEvent;
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.tree.LiteralCommandNode;
-import java.util.Collection;
-import java.util.function.Consumer;
-import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.arguments.EntityArgument;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import org.bukkit.craftbukkit.CraftServer;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.framework.qual.DefaultQualifier;
+import com.github.shynixn.mccoroutine.bukkit.launch
+import com.github.shynixn.mccoroutine.bukkit.ticks
+import com.jeff_media.customblockdata.CustomBlockData
+import kotlinx.coroutines.delay
+import org.bukkit.Bukkit
+import org.bukkit.Material
+import org.bukkit.NamespacedKey
+import org.bukkit.block.BlockFace
+import org.bukkit.entity.Item
+import org.bukkit.event.Listener
+import org.bukkit.persistence.PersistentDataContainer
+import org.bukkit.persistence.PersistentDataType
+import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.util.Vector
+import org.checkerframework.checker.nullness.qual.NonNull
+import org.checkerframework.framework.qual.DefaultQualifier
 
-import static net.kyori.adventure.text.Component.text;
-import static net.kyori.adventure.text.format.NamedTextColor.BLUE;
-import static net.minecraft.commands.Commands.argument;
-import static net.minecraft.commands.Commands.literal;
-import static net.minecraft.commands.arguments.EntityArgument.players;
 
-@DefaultQualifier(NonNull.class)
-public final class TestPlugin extends JavaPlugin implements Listener {
-  @Override
-  public void onEnable() {
-    this.getServer().getPluginManager().registerEvents(this, this);
-
-    this.registerPluginBrigadierCommand(
-      "paperweight",
-      literal -> literal.requires(stack -> stack.getBukkitSender().hasPermission("paperweight"))
-        .then(literal("hello")
-          .executes(ctx -> {
-            ctx.getSource().getBukkitSender().sendMessage(text("Hello!", BLUE));
-            return Command.SINGLE_SUCCESS;
-          }))
-        .then(argument("players", players())
-          .executes(ctx -> {
-            final Collection<ServerPlayer> players = EntityArgument.getPlayers(ctx, "players");
-            for (final ServerPlayer player : players) {
-              player.sendSystemMessage(
-                Component.literal("Hello from Paperweight test plugin!")
-                  .withStyle(ChatFormatting.ITALIC, ChatFormatting.GREEN)
-                  .withStyle(style -> style.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/paperweight @a")))
-              );
-            }
-            return players.size();
-          }))
-    );
-  }
-
-  private PluginBrigadierCommand registerPluginBrigadierCommand(final String label, final Consumer<LiteralArgumentBuilder<CommandSourceStack>> command) {
-    final PluginBrigadierCommand pluginBrigadierCommand = new PluginBrigadierCommand(this, label, command);
-    this.getServer().getCommandMap().register(this.getName(), pluginBrigadierCommand);
-    ((CraftServer) this.getServer()).syncCommands();
-    return pluginBrigadierCommand;
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  @EventHandler
-  public void onCommandRegistered(final CommandRegisteredEvent<BukkitBrigadierCommandSource> event) {
-    if (!(event.getCommand() instanceof PluginBrigadierCommand pluginBrigadierCommand)) {
-      return;
+@DefaultQualifier(NonNull::class)
+class TestPlugin : JavaPlugin(), Listener {
+    override fun onEnable() {
+      this.server.pluginManager.registerEvents(this, this)
+      this.server.pluginManager.registerEvents(PlayerEventHandler(this),this)
+      TickManager.plugin = this
+        launch {
+          while (true){
+            delay(1.ticks)
+            TickManager.n++
+            TickManager.itemEvent()
+          }
+        }
     }
-    final LiteralArgumentBuilder<CommandSourceStack> node = literal(event.getCommandLabel());
-    pluginBrigadierCommand.command().accept(node);
-    event.setLiteral((LiteralCommandNode) node.build());
+
+}
+fun stringToBlockFace(direction: String): BlockFace {
+  return when (direction.uppercase()) {
+    "NORTH" -> BlockFace.NORTH
+    "SOUTH" -> BlockFace.SOUTH
+    "EAST"  -> BlockFace.EAST
+    "WEST"  -> BlockFace.WEST
+    "UP"    -> BlockFace.UP
+    "DOWN"  -> BlockFace.DOWN
+    else -> BlockFace.SELF // 기본값 설정
   }
+}
+
+fun blockFaceToVector(blockFace: BlockFace): Vector {
+  return when (blockFace) {
+    BlockFace.NORTH -> Vector(0.0, 0.0, -1.0)
+    BlockFace.SOUTH -> Vector(0.0, 0.0, 1.0)
+    BlockFace.EAST  -> Vector(1.0, 0.0, 0.0)
+    BlockFace.WEST  -> Vector(-1.0, 0.0, 0.0)
+    BlockFace.UP    -> Vector(0.0, 1.0, 0.0)
+    BlockFace.DOWN  -> Vector(0.0, -1.0, 0.0)
+    else -> Vector(0.0, 0.0, 0.0) // 기본값 (예외 처리)
+  }
+}
+
+fun stringToVector(direction: String): Vector {
+  val blockFace = stringToBlockFace(direction)
+  return blockFaceToVector(blockFace)
 }
