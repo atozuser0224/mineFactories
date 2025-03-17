@@ -48,7 +48,7 @@ tasks {
 }
 
 bukkitPluginYaml {
-  main = "org.gang.MineFactories"
+  main = "org.gang.TestPlugin"
   load = BukkitPluginYaml.PluginLoadOrder.STARTUP
   authors.add("Author")
   apiVersion = "1.21.4"
