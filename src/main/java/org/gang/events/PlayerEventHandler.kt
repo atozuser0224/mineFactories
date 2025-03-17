@@ -2,8 +2,13 @@ package org.gang.events
 
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
+import org.bukkit.block.Block
+import org.bukkit.block.BlockFace
 import org.bukkit.block.data.type.Slab
+import org.bukkit.block.data.type.TrapDoor
 import org.bukkit.entity.ArmorStand
+import org.bukkit.entity.Display
+import org.bukkit.entity.ItemDisplay
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
@@ -25,13 +30,20 @@ class PlayerEventHandler(val plugin: JavaPlugin) : Listener {
       blockdata.type = Slab.Type.TOP
       e.block.blockData = blockdata
     }
-    else if (e.block.type == Material.CHEST && e.block.location.clone().subtract(0.0,1.0,0.0).block.type == Material.POLISHED_ANDESITE_SLAB) {
+    else if (e.block.type == Material.CHEST ) {
       val loc = e.block.location.clone().add(0.5,0.0,0.5)
-      val stand = loc.world.spawn(loc, ArmorStand::class.java)
+      val stand = loc.world.spawn(loc, ItemDisplay::class.java)
 
       stand.pdc.set("armor_stand".key, PersistentDataType.BOOLEAN, true)
 
       e.block.pdc.setString("rotation".key,stand.uniqueId.toString())
+    }
+    else if (e.block.type == Material.IRON_TRAPDOOR) {
+      val block = e.block
+      val trapdoorData = block.blockData.clone() as? TrapDoor ?: return
+      trapdoorData.isOpen = block.getRelative(BlockFace.DOWN).type != Material.CHEST
+      block.blockData = trapdoorData
+      block.state.update(true, true)  // 강제 업데이트
     }
   }
 
@@ -44,5 +56,23 @@ class PlayerEventHandler(val plugin: JavaPlugin) : Listener {
         block.world.getEntity(UUID.fromString(uuid))?.remove()
       }
     }
+    if (e.block.type == Material.POLISHED_GRANITE_SLAB) {
+      val block = e.block
+      if (block.pdc.has("rotation".key)) {
+        val uuid = block.pdc.get("rotation".key, PersistentDataType.STRING)!!
+        block.world.getEntity(UUID.fromString(uuid))?.remove()
+      }
+    }
   }
 }
+  fun countAdjacentTrapdoors(center: Block,material: Material): Boolean {
+    val directions = listOf(
+      BlockFace.UP,
+      BlockFace.DOWN,
+      BlockFace.NORTH,
+      BlockFace.SOUTH,
+      BlockFace.EAST,
+      BlockFace.WEST
+    )
+    return directions.any { center.getRelative(it).type == material }
+  }

@@ -36,6 +36,7 @@ fun setBelt(p:Player,block: Block): Block {
     itemFrame.setFacingDirection(org.bukkit.block.BlockFace.UP,true)
     itemFrame.isVisible = false
     itemFrame.itemDropChance = 0f
+    itemFrame.isFixed = true
     itemFrame.rotation = itemFrameFace(direction)
 
     container.setString("rotation".key,itemFrame.uniqueId.toString())
