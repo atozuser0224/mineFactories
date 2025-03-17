@@ -43,7 +43,7 @@ tasks {
     relocate 'com.jeff_media.customblockdata', 'your.package.customblockdata'
   }*/
   shadowJar {
-    relocate("com.jeff_media.customblockdata", "io.papermc.paperweight.testplugin.customblockdata")
+    relocate("com.jeff_media.customblockdata", "org.gang.customblockdata")
   }
 }
 
