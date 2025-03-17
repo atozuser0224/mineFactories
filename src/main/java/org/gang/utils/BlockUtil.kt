@@ -1,7 +1,7 @@
-package io.papermc.paperweight.testplugin
+package org.gang.utils
 
 import com.jeff_media.customblockdata.CustomBlockData
-import io.papermc.paperweight.testplugin.TickManager.plugin
+import org.gang.managers.TickManager.plugin
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.Rotation
@@ -12,19 +12,24 @@ import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
+import org.bukkit.util.Vector
 import java.util.*
 
 
 fun setBelt(p:Player,block: Block): Block {
   var direction = p.facing // 플레이어가 바라보는 방향
+
   if (direction == BlockFace.UP || direction == BlockFace.DOWN) {
     direction = BlockFace.NORTH
   }
+
   val container = CustomBlockData(block, plugin)
   val blockdata = block.blockData as Slab
+
   blockdata.type = Slab.Type.TOP
   block.blockData = blockdata
   container.setString(scaffolding_direction, direction.name)
+
   block.location.clone().add(0.0,1.0,0.0).let { loc->
     val itemFrame = block.world.spawn(loc, ItemFrame::class.java)
     itemFrame.setItem(ItemStack(Material.BIRCH_STAIRS))
@@ -41,6 +46,7 @@ fun setBelt(p:Player,block: Block): Block {
 fun setRotation(block: Block,blockFace: BlockFace) {
     val container = CustomBlockData(block, plugin)
     val uuid = container.get(NamespacedKey("create","rotation"), PersistentDataType.STRING)!!
+
     block.world.getEntity(UUID.fromString(uuid))?.let { frame->
       (frame as ItemFrame).rotation = when(blockFace){
         BlockFace.WEST-> Rotation.CLOCKWISE_45
@@ -59,3 +65,34 @@ fun itemFrameFace(blockFace: BlockFace) = when(blockFace){
   BlockFace.EAST-> Rotation.FLIPPED_45
   else-> Rotation.NONE
 }
+
+
+fun stringToBlockFace(direction: String): BlockFace {
+  return when (direction.uppercase()) {
+    "NORTH" -> BlockFace.NORTH
+    "SOUTH" -> BlockFace.SOUTH
+    "EAST" -> BlockFace.EAST
+    "WEST" -> BlockFace.WEST
+    "UP" -> BlockFace.UP
+    "DOWN" -> BlockFace.DOWN
+    else -> BlockFace.SELF // 기본값 설정
+  }
+}
+
+fun blockFaceToVector(blockFace: BlockFace): Vector {
+  return when (blockFace) {
+    BlockFace.NORTH -> Vector(0.0, 0.0, -1.0)
+    BlockFace.SOUTH -> Vector(0.0, 0.0, 1.0)
+    BlockFace.EAST -> Vector(1.0, 0.0, 0.0)
+    BlockFace.WEST -> Vector(-1.0, 0.0, 0.0)
+    BlockFace.UP -> Vector(0.0, 1.0, 0.0)
+    BlockFace.DOWN -> Vector(0.0, -1.0, 0.0)
+    else -> Vector(0.0, 0.0, 0.0) // 기본값 (예외 처리)
+  }
+}
+
+fun stringToVector(direction: String): Vector {
+  val blockFace = stringToBlockFace(direction)
+  return blockFaceToVector(blockFace)
+}
+
