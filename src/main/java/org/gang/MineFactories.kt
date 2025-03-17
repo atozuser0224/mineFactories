@@ -21,7 +21,12 @@ class TestPlugin : JavaPlugin(), Listener {
       while (true) {
         delay(1.ticks)
         TickManager.n++
-        TickManager.itemEvent()
+        launch {
+          TickManager.itemEvent()
+        }
+        launch {
+          TickManager.armorStandEvent()
+        }
       }
     }
   }

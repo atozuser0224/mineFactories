@@ -3,6 +3,8 @@ package org.gang.managers
 import com.jeff_media.customblockdata.CustomBlockData
 import org.bukkit.Bukkit
 import org.bukkit.Material
+import org.bukkit.block.Chest
+import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Item
 import org.bukkit.persistence.PersistentDataContainer
 import org.bukkit.util.Vector
@@ -50,5 +52,21 @@ object TickManager {
 
   fun playerEvent() {
 
+  }
+
+  fun armorStandEvent() {
+    Bukkit.getWorlds().forEach {
+      it.entities.filterIsInstance<ArmorStand>().forEach { stand ->
+        if (stand.pdc.has("armor_stand".key)) {
+          stand.getNearbyEntities(0.6,0.5,0.6).filterIsInstance<Item>().forEach { item->
+            stand.location.clone().subtract(0.5,0.0,0.5).toBlockLocation().block.let { block ->
+              val state = block.state as Chest
+              state.inventory.addItem(item.itemStack)
+              item.remove()
+            }
+          }
+        }
+      }
+    }
   }
 }
