@@ -1,6 +1,7 @@
 package org.gang.utils
 
 import com.jeff_media.customblockdata.CustomBlockData
+import org.bukkit.Location
 import org.gang.managers.TickManager.plugin
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
@@ -8,6 +9,7 @@ import org.bukkit.Rotation
 import org.bukkit.block.Block
 import org.bukkit.block.BlockFace
 import org.bukkit.block.data.type.Slab
+import org.bukkit.entity.Entity
 import org.bukkit.entity.ItemFrame
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemStack
@@ -97,3 +99,20 @@ fun stringToVector(direction: String): Vector {
   return blockFaceToVector(blockFace)
 }
 
+fun hasBlockNearby(entity: Entity, blockType: Material, radius: Int): Boolean {
+  val location = entity.location
+  for (x in -radius..radius) {
+    for (y in -radius..radius) {
+      for (z in -radius..radius) {
+        val block = location.toBlockLocation().clone().add(x.toDouble(), y.toDouble(), z.toDouble()).block
+        if (block.type == blockType && compareVectorsDistance(location.toVector(),block.location.toVector(),1.3)) {
+          return true
+        }
+      }
+    }
+  }
+  return false
+}
+fun compareVectorsDistance(vec1: Vector, vec2: Vector, threshold: Double): Boolean {
+  return vec1.distance(vec2) <= threshold
+}

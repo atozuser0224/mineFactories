@@ -27,6 +27,9 @@ class TestPlugin : JavaPlugin(), Listener {
         launch {
           TickManager.armorStandEvent()
         }
+        launch {
+//          TickManager.playerEvent()
+        }
       }
     }
   }

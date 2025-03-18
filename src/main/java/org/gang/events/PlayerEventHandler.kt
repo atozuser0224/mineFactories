@@ -30,7 +30,7 @@ class PlayerEventHandler(val plugin: JavaPlugin) : Listener {
       blockdata.type = Slab.Type.TOP
       e.block.blockData = blockdata
     }
-    else if (e.block.type == Material.CHEST ) {
+    else if (e.block.type == Material.CHEST ||e.block.type == Material.FURNACE) {
       val loc = e.block.location.clone().add(0.5,0.0,0.5)
       val stand = loc.world.spawn(loc, ItemDisplay::class.java)
 
