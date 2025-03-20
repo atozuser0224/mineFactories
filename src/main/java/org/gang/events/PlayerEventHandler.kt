@@ -7,19 +7,31 @@ import org.bukkit.block.BlockFace
 import org.bukkit.block.data.type.Slab
 import org.bukkit.block.data.type.TrapDoor
 import org.bukkit.entity.ArmorStand
+import org.bukkit.entity.BlockDisplay
 import org.bukkit.entity.Display
 import org.bukkit.entity.ItemDisplay
 import org.bukkit.event.EventHandler
 import org.bukkit.event.Listener
 import org.bukkit.event.block.BlockBreakEvent
 import org.bukkit.event.block.BlockPlaceEvent
+import org.bukkit.event.player.PlayerJoinEvent
+import org.bukkit.event.player.PlayerQuitEvent
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.plugin.java.JavaPlugin
+import org.gang.managers.PlayerManager
 import org.gang.utils.*
 import java.util.*
 
 class PlayerEventHandler(val plugin: JavaPlugin) : Listener {
-
+  @EventHandler
+  fun onPlayerJoin(e : PlayerJoinEvent){
+    val p = e.player
+    PlayerManager.displayMap[p] = p.world.spawn(p.location,BlockDisplay::class.java)
+  }
+  @EventHandler
+  fun onPlayerQuit(e : PlayerQuitEvent){
+    PlayerManager.displayMap[e.player]?.remove()
+  }
   @EventHandler
   fun onBlockPlace(e: BlockPlaceEvent) {
     if (e.block.type == Material.POLISHED_GRANITE_SLAB) {

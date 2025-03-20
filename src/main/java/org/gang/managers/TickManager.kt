@@ -6,6 +6,7 @@ import org.bukkit.Material
 import org.bukkit.block.BlockFace
 import org.bukkit.block.Chest
 import org.bukkit.block.Furnace
+import org.bukkit.entity.BlockDisplay
 import org.bukkit.entity.Item
 import org.bukkit.entity.ItemDisplay
 import org.bukkit.persistence.PersistentDataContainer
@@ -22,43 +23,7 @@ object TickManager {
     Bukkit.getWorlds().forEach {
       it.entities.filterIsInstance<Item>().forEach { item ->
         item.location.toBlockLocation().clone().subtract(Vector(0, 1, 0)).block.let { block ->
-          if (hasBlockNearby(item, Material.POLISHED_ANDESITE_STAIRS, 1)) {
-            item.pdc.getString(scaffolding_direction)?.let { direction ->
-              item.pickupDelay = Integer.MAX_VALUE  // 아이템 줍기 불가능하게 설정
-              item.velocity = stringToVector(direction).add(Vector(0f,3f,0f)).multiply(0.05)
-            }
-          }
-          else if (block.type == Material.POLISHED_ANDESITE_SLAB) {
-            item.pdc.getString(scaffolding_direction)?.let { direction ->
-              item.pickupDelay = Integer.MAX_VALUE  // 아이템 줍기 불가능하게 설정
-              item.velocity = stringToVector(direction).multiply(0.05)
-            }
-          }
-          else if (block.type == Material.POLISHED_GRANITE_SLAB) {
-            val container: PersistentDataContainer = CustomBlockData(block, plugin)
-            if (!item.pdc.has(scaffolding_direction)) {
-
-              val centerX = item.location.blockX + 0.5
-              val centerZ = item.location.blockZ + 0.5
-              item.teleport(item.location.clone().apply {
-                x = centerX
-                z = centerZ
-              })
-
-            }
-            if (item.location.x.mod(1.0) in 0.4..0.6 && item.location.z.mod(1.0) in 0.4..0.6) {
-              container.getString(scaffolding_direction)?.let { direction ->
-                item.pdc.setString(scaffolding_direction, direction)
-              }
-            }
-            item.pdc.getString(scaffolding_direction).let { direction ->
-              item.pickupDelay = Integer.MAX_VALUE  // 아이템 줍기 불가능하게 설정
-              item.velocity = stringToVector(direction ?: "").multiply(0.05)
-            }
-          }
-          else{
-            if (item.pickupDelay > 32765) item.pickupDelay = 10
-          }
+          BlockManager.beltMove(block,item)
         }
       }
     }
@@ -190,7 +155,6 @@ object TickManager {
                     }
 
                     stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2+1)
-
                   }
                 }
               }
