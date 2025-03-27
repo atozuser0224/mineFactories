@@ -1,18 +1,15 @@
 package org.gang.managers
 
-import com.jeff_media.customblockdata.CustomBlockData
-import org.bukkit.Bukkit
-import org.bukkit.Material
-import org.bukkit.block.BlockFace
-import org.bukkit.block.Chest
-import org.bukkit.block.Furnace
-import org.bukkit.entity.BlockDisplay
-import org.bukkit.entity.Item
-import org.bukkit.entity.ItemDisplay
-import org.bukkit.persistence.PersistentDataContainer
+import org.bukkit.*
+import org.bukkit.block.*
+import org.bukkit.block.data.Directional
+import org.bukkit.block.data.Waterlogged
+import org.bukkit.entity.*
+import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 import org.bukkit.util.Vector
 import org.gang.TestPlugin
+import org.gang.enums.WaterType
 import org.gang.utils.*
 
 object TickManager {
@@ -20,148 +17,287 @@ object TickManager {
   var n = 0
 
   fun itemEvent() {
-    Bukkit.getWorlds().forEach {
-      it.entities.filterIsInstance<Item>().forEach { item ->
-        item.location.toBlockLocation().clone().subtract(Vector(0, 1, 0)).block.let { block ->
-          BlockManager.beltMove(block,item)
-        }
+    Bukkit.getWorlds().forEach { world ->
+      world.entities.filterIsInstance<Item>().forEach { item ->
+        val blockBelow = item.location.toBlockLocation()
+          .clone()
+          .subtract(Vector(0, 1, 0))
+          .block
+        BlockManager.beltMove(blockBelow, item)
       }
     }
   }
 
-//  fun playerEvent() {
-//    Bukkit.getOnlinePlayers().forEach { player ->
-//      player.location.toBlockLocation().clone().subtract(Vector(0, 1, 0)).block.let { block ->
-//        if (hasBlockNearby(player, Material.POLISHED_ANDESITE_STAIRS, 1)) {
-//          player.pdc.getString(scaffolding_direction)?.let { direction ->
-//            player.velocity = stringToVector(direction).add(Vector(0f,5f,0f)).multiply(0.05).add(player.velocity)
-//          }
-//        }
-//        else if (block.type == Material.POLISHED_ANDESITE_SLAB) {
-//          player.pdc.getString(scaffolding_direction)?.let { direction ->
-//            player.velocity = stringToVector(direction).multiply(0.05).add(player.velocity)
-//          }
-//        }
-//        else if (block.type == Material.POLISHED_GRANITE_SLAB) {
-//          val container: PersistentDataContainer = CustomBlockData(block, plugin)
-//          container.getString(scaffolding_direction)?.let { direction ->
-//            player.pdc.setString(scaffolding_direction, direction)
-//          }
-//          player.pdc.getString(scaffolding_direction).let { direction ->
-//            player.velocity = stringToVector(direction ?: "").multiply(0.05).add(player.velocity)
-//          }
-//        }
-//      }
-//    }
-//  }
+  private fun handleWaterEntity(stand: ItemDisplay) {
+    stand.incrementTick()
+    if (shouldRemoveEntity(stand)) {
+      stand.remove()
+      return
+    }
+
+    spawnWaterParticle(stand)
+
+    when (stand.location.block.type) {
+      Material.WAXED_COPPER_BLOCK -> handleCopperBlock(stand)
+      Material.BRICK_WALL -> handleBrickWall(stand)
+      Material.LIGHTNING_ROD -> handleLightningRod(stand)
+      else -> stand.remove()
+    }
+  }
+
+  private fun ItemDisplay.incrementTick() {
+    val currentTick = this.pdc.getOrDefault("tick".key, PersistentDataType.INTEGER, 0)
+    this.pdc.set("tick".key, PersistentDataType.INTEGER, currentTick + 1)
+  }
+
+  private fun shouldRemoveEntity(stand: ItemDisplay): Boolean {
+    return stand.pdc.getOrDefault("tick".key, PersistentDataType.INTEGER, 0) >= 20 * 10
+  }
+
+  private fun spawnWaterParticle(stand: ItemDisplay) {
+    if (n % 5 == 0) {
+      val waterType = WaterType.entries.firstOrNull {
+        stand.pdc.get("type".key, PersistentDataType.STRING) == it.name
+      }
+      val color = waterType?.color ?: Color.BLUE
+      val dustOptions = Particle.DustOptions(color, 1.0f)
+
+      stand.location.world.spawnParticle(
+        Particle.DUST,
+        stand.location.clone().add(0.0, 0.5, 0.0),
+        5,
+        0.1, 0.1, 0.1,
+        0.0,
+        dustOptions
+      )
+    }
+  }
+
+  private fun handleInventoryInteraction(stand: ItemDisplay, block: Block) {
+    when (val state = block.state) {
+      is Chest -> handleChestInteraction(state, stand)
+      is Furnace -> handleFurnaceInteraction(state, stand)
+      is Smoker -> handleSmokerInteraction(state, stand)
+    }
+  }
+
+  private fun handlePump(stand: ItemDisplay) {
+    if (n % 60 != 0) return
+
+    val data = stand.location.block.blockData as? Waterlogged ?: return
+    if (!data.isWaterlogged) return
+
+    val loc = stand.location
+    val item = loc.world.spawn(loc, ItemDisplay::class.java).apply {
+      pdc.set("type".key, PersistentDataType.STRING, WaterType.WATER.name)
+      pdc.set("water".key, PersistentDataType.BOOLEAN, true)
+    }
+
+    data.isWaterlogged = false
+    loc.block.blockData = data
+  }
 
   fun armorStandEvent() {
-    Bukkit.getWorlds().forEach {
-      it.entities.filterIsInstance<ItemDisplay>().forEach { stand ->
-        if (stand.pdc.has("armor_stand".key)) {
-
-          stand.getNearbyEntities(0.6,0.6,0.6).filterIsInstance<Item>().forEach { item->
-            stand.location.clone().subtract(0.5,0.0,0.5).toBlockLocation().block.let { block ->
-              if(block.type == Material.CHEST){
-                val state = block.state as Chest
-                state.inventory.addItem(item.itemStack)
-                item.remove()
-              }
-              else if(block.type == Material.FURNACE){
-                val state = block.state as Furnace
-                if (item.itemStack.type.isFuel){
-                  state.inventory.fuel = item.itemStack
-                  item.remove()
-                }else{
-                  state.inventory.addItem(item.itemStack)
-                  item.remove()
-                }
-              }
-            }
-          }
-          if (n % 20 == 0){
-            val loc = stand.location.clone().subtract(0.5,0.0,0.5).toBlockLocation()
-            loc.block.let { block ->
-              if(block.type == Material.CHEST){
-                val state = block.state as Chest
-                var a = 0
-                val list = mutableListOf<Pair<Vector,BlockFace>>()
-                val directions = listOf(
-                  Pair(Vector(1, 0, 0), BlockFace.EAST),    // 오른쪽
-                  Pair(Vector(-1, 0, 0), BlockFace.WEST),   // 왼쪽
-                  Pair(Vector(0, 1, 0), BlockFace.UP),      // 위
-                  Pair(Vector(0, 0, 1), BlockFace.SOUTH),   // 앞
-                  Pair(Vector(0, 0, -1), BlockFace.NORTH)   // 뒤
-                )
-                for (direction in directions) {
-                  if (loc.clone().add(direction.first).block.type == Material.IRON_TRAPDOOR) {
-                    a++
-                    list.add(direction)
-                  }
-                }
-                val n2 = stand.pdc.getOrDefault("n_trapdoor".key, PersistentDataType.INTEGER,0)
-                if (a >= 1){
-                  state.inventory.first()?.let {
-                    val oneItem = it.clone().apply { amount = 1 }  // 1개로 설정된 아이템 복제본
-
-                    loc.world.spawn(stand.location.clone().add(list[n2 % a].first), Item::class.java).apply {
-                      this.itemStack = oneItem  // 1개짜리 아이템 스폰
-                    }
-
-                    // 원본에서 1개 제거
-                    it.amount -= 1
-                    if (it.amount <= 0) {
-                      state.inventory.remove(it)  // 수량이 0이 되면 인벤토리에서 제거
-                    }
-
-                    stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2+1)
-                  }
-
-                }
-              }
-              else if(block.type == Material.FURNACE){
-                val state = block.state as Furnace
-                var a = 0
-                val list = mutableListOf<Pair<Vector,BlockFace>>()
-                val directions = listOf(
-                  Pair(Vector(1, 0, 0), BlockFace.EAST),    // 오른쪽
-                  Pair(Vector(-1, 0, 0), BlockFace.WEST),   // 왼쪽
-                  Pair(Vector(0, 1, 0), BlockFace.UP),      // 위
-                  Pair(Vector(0, 0, 1), BlockFace.SOUTH),   // 앞
-                  Pair(Vector(0, 0, -1), BlockFace.NORTH)   // 뒤
-                )
-                for (direction in directions) {
-                  if (loc.clone().add(direction.first).block.type == Material.IRON_TRAPDOOR) {
-                    a++
-                    list.add(direction)
-                  }
-                }
-                val n2 = stand.pdc.getOrDefault("n_trapdoor".key, PersistentDataType.INTEGER,0)
-                if (a >= 1){
-                  state.inventory.result?.let {
-                    val oneItem = it.clone()  // 원본 아이템스택을 복제
-                    oneItem.amount = 1        // 복제된 아이템의 양을 1개로 설정
-
-                    loc.world.spawn(stand.location.clone().add(list[n2 % a].first), Item::class.java).apply {
-                      this.itemStack = oneItem  // 1개로 설정된 아이템을 스폰
-                    }
-
-                    // 원본 아이템스택에서 1개 제거
-                    it.amount -= 1
-                    if (it.amount <= 0) {
-                      state.inventory.result = null
-                    } else {
-                      state.inventory.result = it
-                    }
-
-                    stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2+1)
-                  }
-                }
-              }
+    Bukkit.getWorlds().forEach { world ->
+      world.entities.filterIsInstance<ItemDisplay>().forEach { stand ->
+        when {
+          stand.pdc.has("water".key) -> handleWaterEntity(stand)
+          stand.pdc.has("pump".key) -> handlePump(stand)
+          stand.pdc.has("armor_stand".key) -> {
+            val block = stand.location.block
+            if (block.type in listOf(Material.CHEST, Material.FURNACE, Material.SMOKER)) {
+              handleInventoryInteraction(stand, block)
             }
           }
         }
       }
     }
   }
+  private fun handleCopperBlock(stand: ItemDisplay) {
+    if (n % 20 != 0) return
+
+    val directions = ChestManager.setDirection(stand.location, Material.LIGHTNING_ROD)
+    val vectors = directions.first.filter {
+      it.second == (stand.location.clone().add(it.first).block.blockData as Directional).facing
+    }
+
+    if (vectors.isEmpty()) return
+
+    val n2 = stand.pdc.getOrDefault("n_trapdoor".key, PersistentDataType.INTEGER, 0)
+    stand.teleport(stand.location.clone().add(vectors[n2 % vectors.size].first))
+    stand.pdc.set("tick".key, PersistentDataType.INTEGER, 0)
+    stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2 + 1)
+  }
+
+  private fun handleBrickWall(stand: ItemDisplay) {
+    stand.teleport(stand.location.clone().add(blockFaceToVector(BlockFace.UP).multiply(0.3)))
+  }
+
+  private fun handleLightningRod(stand: ItemDisplay) {
+    val data = stand.location.block.blockData as Directional
+    stand.teleport(stand.location.clone().add(blockFaceToVector(data.facing).multiply(0.3)))
+  }
+
+  private fun handleChestInteraction(state: Chest, stand: ItemDisplay) {
+    // 아이템 수집 처리
+    collectNearbyItems(stand, state)
+
+    // 아이템 배출 처리
+    if (n % 20 == 0) {
+      distributeItems(state, stand)
+    }
+  }
+
+  private fun handleFurnaceInteraction(state: Furnace, stand: ItemDisplay) {
+    // 아이템 수집 처리
+    collectNearbyItems(stand, state)
+
+    // 결과물 배출 처리
+    if (n % 20 == 0) {
+      distributeResults(state, stand)
+    }
+  }
+
+  private fun handleSmokerInteraction(state: Smoker, stand: ItemDisplay) {
+    // 아이템 수집 처리
+    collectNearbyItems(stand, state)
+
+    // 에너지 생성 처리
+    if (n % 20 == 0) {
+      createEnergy(state, stand)
+    }
+  }
+
+  private fun collectNearbyItems(stand: ItemDisplay, container: BlockState) {
+    stand.getNearbyEntities(0.6, 0.6, 0.6)
+      .filterIsInstance<Item>()
+      .forEach { item ->
+        when (container) {
+          is Chest -> {
+            container.inventory.addItem(item.itemStack)
+            item.remove()
+          }
+          is Furnace -> handleFurnaceItems(container, item)
+          is Smoker -> handleSmokerItems(container, item)
+        }
+      }
+  }
+
+  private fun handleFurnaceItems(furnace: Furnace, item: Item) {
+    val itemStack = item.itemStack
+    if (itemStack.type.isFuel) {
+      when {
+        furnace.inventory.fuel == null -> {
+          furnace.inventory.fuel = itemStack
+          item.remove()
+        }
+        furnace.inventory.fuel?.type == itemStack.type -> {
+          furnace.inventory.fuel = furnace.inventory.fuel?.apply {
+            amount += itemStack.amount
+          }
+          item.remove()
+        }
+      }
+    } else {
+      furnace.inventory.addItem(itemStack)
+      item.remove()
+    }
+  }
+
+  private fun handleSmokerItems(smoker: Smoker, item: Item) {
+    val itemStack = item.itemStack
+    if (itemStack.type.isFuel) {
+      when {
+        smoker.inventory.fuel == null -> {
+          smoker.inventory.fuel = itemStack
+          item.remove()
+        }
+        smoker.inventory.fuel?.type == itemStack.type -> {
+          smoker.inventory.fuel = smoker.inventory.fuel?.apply {
+            amount += itemStack.amount
+          }
+          item.remove()
+        }
+      }
+    }
+  }
+
+  private fun distributeItems(chest: Chest, stand: ItemDisplay) {
+    val loc = stand.location.clone().subtract(0.5, 0.0, 0.5).toBlockLocation()
+    val directions = ChestManager.setDirection(loc, Material.IRON_TRAPDOOR)
+    val list = directions.first
+    val directionCount = directions.second
+
+    if (directionCount < 1) return
+
+    val n2 = stand.pdc.getOrDefault("n_trapdoor".key, PersistentDataType.INTEGER, 0)
+    chest.inventory.first()?.let { item ->
+      val oneItem = item.clone().apply { amount = 1 }
+
+      loc.world.spawn(stand.location.clone().add(list[n2 % directionCount].first), Item::class.java) {
+        it.itemStack = oneItem
+      }
+
+      item.amount -= 1
+      if (item.amount <= 0) {
+        chest.inventory.remove(item)
+      }
+
+      stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2 + 1)
+    }
+  }
+
+  private fun distributeResults(furnace: Furnace, stand: ItemDisplay) {
+    val loc = stand.location.clone().subtract(0.5, 0.0, 0.5).toBlockLocation()
+    val directions = ChestManager.setDirection(loc, Material.IRON_TRAPDOOR)
+    val list = directions.first
+    val directionCount = directions.second
+
+    if (directionCount < 1) return
+
+    furnace.inventory.result?.let { result ->
+      val n2 = stand.pdc.getOrDefault("n_trapdoor".key, PersistentDataType.INTEGER, 0)
+      val oneItem = result.clone().apply { amount = 1 }
+
+      loc.world.spawn(stand.location.clone().add(list[n2 % directionCount].first), Item::class.java) {
+        it.itemStack = oneItem
+      }
+
+      result.amount -= 1
+      if (result.amount <= 0) {
+        furnace.inventory.remove(result)
+      }
+
+      stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2 + 1)
+    }
+  }
+
+  private fun createEnergy(smoker: Smoker, stand: ItemDisplay) {
+    val directions = ChestManager.setDirection(stand.location, Material.LIGHTNING_ROD)
+    val vectors = directions.first.filter {
+      it.second == (stand.location.clone().add(it.first).block.blockData as Directional).facing
+    }
+
+    if (vectors.isEmpty()) return
+
+    smoker.inventory.result?.let { result ->
+      val n2 = stand.pdc.getOrDefault("n_trapdoor".key, PersistentDataType.INTEGER, 0)
+
+      stand.location.world.spawn(
+        stand.location.clone().add(vectors[n2 % vectors.size].first),
+        ItemDisplay::class.java
+      ).apply {
+        pdc.set("type".key, PersistentDataType.STRING, WaterType.ENERGY.name)
+        pdc.set("water".key, PersistentDataType.BOOLEAN, true)
+      }
+
+      result.amount -= 1
+      if (result.amount <= 0) {
+        smoker.inventory.remove(result)
+      }
+
+      stand.pdc.set("n_trapdoor".key, PersistentDataType.INTEGER, n2 + 1)
+    }
+  }
+
 }

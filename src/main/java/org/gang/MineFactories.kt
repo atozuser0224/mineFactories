@@ -8,7 +8,6 @@ import org.bukkit.plugin.java.JavaPlugin
 import org.checkerframework.checker.nullness.qual.NonNull
 import org.checkerframework.framework.qual.DefaultQualifier
 import org.gang.events.PlayerEventHandler
-import org.gang.managers.PlayerManager
 import org.gang.managers.TickManager
 
 
@@ -29,13 +28,12 @@ class TestPlugin : JavaPlugin(), Listener {
           TickManager.armorStandEvent()
         }
         launch {
-          PlayerManager.playerEvent()
+          TickManager.displayEvent()
         }
       }
     }
   }
 
   override fun onDisable() {
-    PlayerManager.displayMap.forEach { (_, display) -> display.remove() }
   }
 }

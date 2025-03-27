@@ -93,7 +93,10 @@ fun blockFaceToVector(blockFace: BlockFace): Vector {
     else -> Vector(0.0, 0.0, 0.0) // 기본값 (예외 처리)
   }
 }
+fun noteBlock(){
+  val item = ItemStack.of(Material.NOTE_BLOCK)
 
+}
 fun stringToVector(direction: String): Vector {
   val blockFace = stringToBlockFace(direction)
   return blockFaceToVector(blockFace)
